@@ -7,7 +7,12 @@ if [ -z $writefile ] || [ -z $writestr ]; then
 echo 'Parameter mismatch: ./writer.sh <directory> <string>' 
 exit 1
 else
-mkdir -p $(dirname $writefile)
-echo $writestr > $writefile
-exit 0
+    if mkdir -p $(dirname $writefile)
+    then
+    echo $writestr > $writefile
+    exit 0
+    else
+    echo "Error: File not created"
+    exit 1
+    fi
 fi
