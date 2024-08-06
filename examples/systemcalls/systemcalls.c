@@ -1,4 +1,13 @@
 #include "systemcalls.h"
+#include <stdlib.h>      //system()
+// #include <sys/stat.h>      //open()
+#include <sys/wait.h>    //waitpid()
+#include <sys/types.h>   //fork()
+#include <unistd.h>      //fork()
+#include <fcntl.h>
+
+
+
 
 /**
  * @param cmd the command to execute with system()
@@ -8,14 +17,20 @@
  *   value was returned by the command issued in @param cmd.
 */
 bool do_system(const char *cmd)
-{
-
+{   
 /*
  * TODO  add your code here
  *  Call the system() function with the command set in the cmd
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
+  
+    int ret = system(cmd);
+    if(ret!=0){
+        perror("*** do_system");
+        printf("Command execution failed or returned non-zero: %d", ret);
+        return false;
+    }
 
     return true;
 }
@@ -38,7 +53,7 @@ bool do_exec(int count, ...)
 {
     va_list args;
     va_start(args, count);
-    char * command[count+1];
+    char *command[count+1];
     int i;
     for(i=0; i<count; i++)
     {
@@ -58,10 +73,35 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
-
+    fflush(stdout);
+    pid_t pid = fork();
+    if(pid==-1){
+        perror("** fork");
+        return false;
+    }else if(pid==0){   //pid0 success, execv will get executed in child
+            execv(command[0], command);
+            perror("*** execv");
+            exit(EXIT_FAILURE);
+            // return false;
+    }
+    
+    /*
+     * waitpid() system call is used to wait for state changes in a child of the calling process. 
+     * and it obtain information about the child whose state has changed.
+     * if  a  child  has already changed state, then it returns immediately.
+     *
+    */
+    int status;
+    if (waitpid (pid, &status, 0) == -1){ //returned in case of error
+        return false;
+    }else if (WIFEXITED(status)){   //return true if child terminated normally, false if terminated abnormally
+     if(WEXITSTATUS(status)){       //return exit status of child, if wexitstatus is ture (1), it indicates that the child process exited with an error.
+        return false;
+     }
+    }
+    
     va_end(args);
-
-    return true;
+    return true; 
 }
 
 /**
@@ -92,6 +132,50 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *   The rest of the behaviour is same as do_exec()
  *
 */
+    int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    if (fd ==-1) { 
+        perror("*** open"); 
+        return false; 
+        }
+
+    fflush(stdout);
+    pid_t pid = fork();
+    if(pid==-1){
+        perror("*** fork");
+        return false;
+    }else if(pid==0){   //pid0 success, execv will get in child
+
+    /*
+     * dup2(oldfd,newfd) system call creates copy of the old file descriptor oldfd, 
+     * and uses the file descriptor number specified in newfd as new file descriptor.
+    */
+            if (dup2(fd, 1) < 0) { 
+                perror("dup2"); 
+                return false; 
+                }
+            close(fd);
+            execv(command[0], command);
+            perror("*** execv_redirect");
+            exit(EXIT_FAILURE);
+            // return false;
+    }
+
+
+    /*
+     * waitpid() system call is used to wait for state changes in a child of the calling process. 
+     * and it obtain information about the child whose state has changed.
+     * if  a  child  has already changed state, then it returns immediately.
+     *
+    */
+    int status;
+    if (waitpid (pid, &status, 0) == -1){ //returned in case of error
+        return false;
+    }else if (WIFEXITED(status)){   //return true if child terminated normally, false if terminated abnormally
+     if(WEXITSTATUS(status)){       //return exit status of child, if wexitstatus is ture, it indicates that the child process exited with an error.
+        return false;
+     }
+    }
+    
 
     va_end(args);
 
