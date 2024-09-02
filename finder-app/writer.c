@@ -1,36 +1,31 @@
+
 #include <stdio.h>
-#include <fcntl.h>
-#include <stdlib.h>
 #include <syslog.h>
-#include <string.h>
-#include <unistd.h>
 
-int main(int argc, char *argv[]){
-    // openlog("writer", LOG_PID | LOG_CONS, LOG_USER);
-    openlog("writer",0, LOG_USER);
+
+
+int main ( int argc, char **argv ) {
+
+    openlog(NULL,0,LOG_USER);
     
-    int fd;
-    if(argc!=3){
-        syslog(LOG_ERR, "Parameter mismatch: ./writer <directory> <string>");
-        printf("Parameter mismatch: ./writer <directory> <string>\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    fd = open(argv[1], O_CREAT | O_WRONLY | O_TRUNC,0744);
-    if(fd==-1){
-        syslog(LOG_ERR, "Failed to Open or Create a file");
-        perror("Error");
-        exit(EXIT_FAILURE);
+    if (argc != 3){
+        syslog(LOG_ERR, "Invalid number of args. <command> <path> <string>");
+        return 1;
     }
 
+    char *m_path = argv[1];
+    char *m_string = argv[2];
 
-    syslog(LOG_DEBUG,"Writing %s to %s",argv[2],argv[1]);
-    ssize_t wr = write(fd,argv[2],strlen(argv[2]));
-    if(wr==-1){
-        syslog(LOG_ERR,"Unable to write string %s to file %s \n",argv[2],argv[1]);
-        perror("Error");
-        exit(EXIT_FAILURE);
-    } 
+    FILE *fptr;
+    syslog(LOG_DEBUG, "Writing %s to %s", m_string, m_path);
+
+    // Open and write string to file
+    fptr = fopen(m_path, "w");    
+    fprintf(fptr, "%s",m_string);
+
+    // Close the file
+    fclose(fptr);
+
     return 0;
-}
 
+}

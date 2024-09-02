@@ -1,25 +1,24 @@
 #!/bin/sh
 
-filesdir=$1
-searchstr=$2
-noArgu=$#
-
-
-if [ -d $filesdir  ]
+if [ $# -eq 2 ]; 
 then
-	if [ $noArgu -eq  2 ]
-	then
-	#grep -r --color $searchstr $filesdir
-	matchingStr=$(grep -r -h --color $searchstr $filesdir | wc -l)
-	nooffiles=$(ls -1 $filesdir | wc -l)
-	echo "The number of files are $nooffiles and the number of matching lines are $matchingStr"
-	exit 0
-	else
-	echo 'Parameter mismatch: ./finder.sh <directory> <string>'
-	exit 1
-	fi
-else
-echo 'First parameter does not represent a directory on the filesystem.'
-exit 1
-fi
+    path=$1
+    str=$2
+    #echo "[Debug]: ${path} | ${str}"
+    
+    if [ -d "$path" ]; then
+        # echo "success: ${path} found!"
+        x=$(find $path -type f | wc -l)
+        files=$(find $path -type f)
+        y=$(grep $str $files| wc -l)
+        echo "The number of files are ${x} and the number of matching lines are ${y}"
 
+    else
+        echo "Folder not found"
+        exit 1
+    fi
+    
+else
+    echo "not correct arg ${$#}"
+    exit 1
+fi

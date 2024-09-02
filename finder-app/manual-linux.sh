@@ -35,28 +35,21 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
     git checkout ${KERNEL_VERSION}
 
     # TODO: Add your kernel build steps here
-    cd "${OUTDIR}/linux-stable"
-    echo "*************DEEP CLEANING KERNEL BUILD TREE*************"
-    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} mrproper # deep clean kernel build tree, removes any .configs etc
-    
-    echo "*************DEFCONFIG FOR QEMU VIRT (arm64 - aarch64-none-linux-gnu-)*************"
-    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} defconfig #defconfig for QEMU VIRT
+    make ARCH=arm64 CROSS_COMPILE=${CROSS_COMPILE} mrproper
 
-    echo "*************BUILDING TARGET KERNEL IMAGE (vmlinux)*************"
-    make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} all #build kernel
+    make ARCH=arm64 CROSS_COMPILE=${CROSS_COMPILE} defconfig
 
-    # echo "*************BUILDING KERNEL MODULES*************"
-    # make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} modules #build kernel modules if any
+    make -j4 ARCH=arm64 CROSS_COMPILE=${CROSS_COMPILE} all
 
-     echo "*************BUILDING DEVICETREE*************"
-     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs #build the devicetree
+    make ARCH=arm64 CROSS_COMPILE=${CROSS_COMPILE} modules
 
+    make ARCH=arm64 CROSS_COMPILE=${CROSS_COMPILE} dtbs
 fi
 
-echo "...Adding the Image in outdir..."
-cp "$OUTDIR/linux-stable/arch/arm64/boot/Image" $OUTDIR      #copying generated Image to OUTDIR
+echo "Adding the Image in outdir"
+cp ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ${OUTDIR}/
 
-echo "...Creating the staging directory for the root filesystem..."
+echo "Creating the staging directory for the root filesystem"
 cd "$OUTDIR"
 if [ -d "${OUTDIR}/rootfs" ]
 then
@@ -65,11 +58,12 @@ then
 fi
 
 # TODO: Create necessary base directories
-mkdir -v "${OUTDIR}/rootfs"
-cd "${OUTDIR}/rootfs"
-mkdir -vp bin dev etc home lib lib64 proc sys sbin tmp usr var
-mkdir -vp usr/bin usr/lib usr/sbin
-mkdir -vp var/log
+mkdir rootfs
+cd rootfs
+mkdir -p bin dev etc home lib lib64 proc sbin sys tmp usr var
+mkdir -p usr/bin usr/lib usr/sbin
+mkdir -p var/log
+# tree
 
 cd "$OUTDIR"
 if [ ! -d "${OUTDIR}/busybox" ]
@@ -78,79 +72,58 @@ git clone git://busybox.net/busybox.git
     cd busybox
     git checkout ${BUSYBOX_VERSION}
     # TODO:  Configure busybox
-    echo "*************CONFIGURING BUSYBOX*************"
-    make distclean  # clean busybox, e.g .configs
-    make defconfig  # defconfig
-    
 else
     cd busybox
 fi
 
 # TODO: Make and install busybox
-    echo "*************MAKING BUSYBOX*************"
-    make -j 4 -v ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
-    
-    echo "*************INSTALLING  BUSYBOX*************"
-    make CONFIG_PREFIX="$OUTDIR/rootfs" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} install
 
+make clean
+make defconfig
+make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
+make CONFIG_PREFIX="$OUTDIR/rootfs" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} install
+cd "$OUTDIR/rootfs"
 
-
-
-# TODO: Add library dependencies to rootfs
-SYSROOT_DIR=`dirname $(whereis aarch64-none-linux-gnu-gcc | cut -d " " -f2)`
-#SYSROOT=$(${CROSS_COMPILE}gcc --print-sysroot)
-SYSROOT=${SYSROOT_DIR}/../aarch64-none-linux-gnu/libc
-cd ${OUTDIR}/rootfs
+echo "Library dependencies"
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "program interpreter"
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "Shared library"
 
-echo "*************ADDING LIB/LIB64 DEPENDENCIES*************"
-
-
-cp -afv ${SYSROOT}/lib/ld-linux-aarch64.so.1 ${OUTDIR}/rootfs/lib
-cp -af ${SYSROOT}/lib64/ld-2.33.so ${OUTDIR}/rootfs/lib64
-
-cp -afv ${SYSROOT}/lib64/libm.so.6 ${OUTDIR}/rootfs/lib64
-cp -af ${SYSROOT}/lib64/libm-2.33.so ${OUTDIR}/rootfs/lib64
-
-cp -afv ${SYSROOT}/lib64/libresolv.so.2 ${OUTDIR}/rootfs/lib64
-cp -af ${SYSROOT}/lib64/libresolv-2.33.so ${OUTDIR}/rootfs/lib64
-
-cp -afv ${SYSROOT}/lib64/libc.so.6 ${OUTDIR}/rootfs/lib64
-cp -af ${SYSROOT}/lib64/libc-2.33.so ${OUTDIR}/rootfs/lib64
-
+# TODO: Add library dependencies to rootfs
+cross_path="/usr/local/arm-cross-compiler/install/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc"
+cp ${cross_path}/lib/ld-linux-aarch64.so.1 $OUTDIR/rootfs/lib/
+cp ${cross_path}/lib64/* $OUTDIR/rootfs/lib64/
+# cp ${cross_path}/lib64/libm.so.6 $OUTDIR/rootfs/lib64/
+# cp ${cross_path}/lib64/libresolv.so.2 $OUTDIR/rootfs/lib64/
+# cp ${cross_path}/lib64/libc.so.6 $OUTDIR/rootfs/lib64/
 
 # TODO: Make device nodes
-echo "*************MAKING DEVICE NODES*************"
-sudo mknod -m 666 ${OUTDIR}/rootfs/dev/null c 1 3
-sudo mknod -m 600 ${OUTDIR}/rootfs/dev/console c 5 1
-echo "Done"
+cd $OUTDIR/rootfs
+sudo mknod -m 666 dev/null c 1 3
+sudo mknod -m 666 dev/console c 5 1
 
 # TODO: Clean and build the writer utility
-echo "*************CLEAN BUILD WRITER APP*************"
-FINDERAPP_DIR=`find /* -name "finder-app" -print -quit`
 cd ${FINDER_APP_DIR}
-make clean
-make CROSS_COMPILE=aarch64-none-linux-gnu-
+make CROSS_COMPILE=${CROSS_COMPILE} clean
+make CROSS_COMPILE=${CROSS_COMPILE} all
 
 # TODO: Copy the finder related scripts and executables to the /home directory
 # on the target rootfs
-echo "*************COPYING NECESSARY FILES TO ROOTFS*************"
-cp writer ${OUTDIR}/rootfs/home
-cp finder.sh ${OUTDIR}/rootfs/home
-cp autorun-qemu.sh ${OUTDIR}/rootfs/home
-cp finder-test.sh ${OUTDIR}/rootfs/home
-
-cp -r conf/ ${OUTDIR}/rootfs/home
-echo "copied"
+cd ${FINDER_APP_DIR}
+cp writer $OUTDIR/rootfs/home/
+mkdir -p $OUTDIR/rootfs/home/conf
+cp conf/* $OUTDIR/rootfs/home/conf/
+cp finder.sh $OUTDIR/rootfs/home/
+cp finder-test.sh $OUTDIR/rootfs/home/
+cp autorun-qemu.sh $OUTDIR/rootfs/home/
+cd $OUTDIR/rootfs/home/
+# sed -i 's@cat ../@cat @g' finder-test.sh
 
 # TODO: Chown the root directory
-sudo chown -hR root:root ${OUTDIR}/rootfs
+cd $OUTDIR/rootfs
+sudo chown -R root:root *
 
 # TODO: Create initramfs.cpio.gz
-echo "*************CREATING INTIRAMFS.CPIO.GZ*************"
-cd "$OUTDIR/rootfs"
-find . | cpio -H newc -o --owner root:root > ${OUTDIR}/initramfs.cpio
+cd $OUTDIR/rootfs
+find . | cpio -H newc -ov --owner root:root > ../initramfs.cpio
 cd ..
 gzip -f initramfs.cpio
-echo "*************ALL DONE*************"
