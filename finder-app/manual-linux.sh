@@ -48,8 +48,8 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
     # echo "*************BUILDING KERNEL MODULES*************"
     # make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} modules #build kernel modules if any
 
-    # echo "*************BUILDING DEVICETREE*************"
-    # make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs #build the devicetree
+     echo "*************BUILDING DEVICETREE*************"
+     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs #build the devicetree
 
 fi
 
@@ -97,12 +97,15 @@ fi
 
 
 # TODO: Add library dependencies to rootfs
-SYSROOT=$(${CROSS_COMPILE}gcc --print-sysroot)
+SYSROOT_DIR=`dirname $(whereis aarch64-none-linux-gnu-gcc | cut -d " " -f2)`
+#SYSROOT=$(${CROSS_COMPILE}gcc --print-sysroot)
+SYSROOT=${SYSROOT_DIR}/../aarch64-none-linux-gnu/libc
 cd ${OUTDIR}/rootfs
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "program interpreter"
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "Shared library"
 
 echo "*************ADDING LIB/LIB64 DEPENDENCIES*************"
+
 
 cp -afv ${SYSROOT}/lib/ld-linux-aarch64.so.1 ${OUTDIR}/rootfs/lib
 cp -af ${SYSROOT}/lib64/ld-2.33.so ${OUTDIR}/rootfs/lib64
@@ -125,6 +128,7 @@ echo "Done"
 
 # TODO: Clean and build the writer utility
 echo "*************CLEAN BUILD WRITER APP*************"
+FINDERAPP_DIR=`find /* -name "finder-app" -print -quit`
 cd ${FINDER_APP_DIR}
 make clean
 make CROSS_COMPILE=aarch64-none-linux-gnu-
