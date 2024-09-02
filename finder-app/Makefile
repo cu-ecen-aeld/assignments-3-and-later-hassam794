@@ -1,24 +1,48 @@
+# SRC = writer.c
+# FILE= writer
+
+# #create object file by replacing .c of source files with .o
+# OBJS = $(SRC:.c=.o)
+# CFLAGS= -c -Wall
+# CC=gcc
+# #optional crosscompile
+# CROSS_COMPILE?= 
+
+# .PHONY: default
+
+# default: all
+
+# all: $(OBJS)
+# 	$(CROSS_COMPILE)$(CC) $(OBJS) -o $(FILE)
+
+
+# %.o: %.c
+# 	$(CROSS_COMPILE)$(CC) $(CFLAGS) $< -o $@ 
+
+
+# clean:
+# 	rm -rf *.o $(FILE)
+
+
 SRC = writer.c
-FILE= writer
+FILE = writer
 
-#create object file by replacing .c of source files with .o
+# Create object file by replacing .c of source files with .o
 OBJS = $(SRC:.c=.o)
-CFLAGS= -c -Wall
-CC=gcc
-#optional crosscompile
-CROSS_COMPILE?= 
+CFLAGS = -Wall
 
-.PHONY: default
+# Allow Buildroot to set CC and CROSS_COMPILE
+CC ?= $(CROSS_COMPILE)gcc
+
+.PHONY: default clean
 
 default: all
 
 all: $(OBJS)
-	$(CROSS_COMPILE)$(CC) $(OBJS) -o $(FILE)
-
+	$(CC) $(OBJS) -o $(FILE)
 
 %.o: %.c
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) $< -o $@ 
-
+	$(CC) $(CFLAGS) -c $< -o $@ 
 
 clean:
 	rm -rf *.o $(FILE)
